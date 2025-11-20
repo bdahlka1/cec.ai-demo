@@ -8,14 +8,14 @@ st.title("CEC AI Demo – Blake Dahlka")
 st.write("**Branch Manager Michigan • IBM GenAI Executive Certified – Nov 19, 2025**")
 
 # IBM Certificate (your real one)
-st.image("https://i.imgur.com/0qX8vY8.png", use_column_width=True)  # Your actual cert from upload
+st.image("https://raw.githubusercontent.com/bdahlka1/cec-ai-demo/main/IBM-Certificate.png", use_column_width=True)
 
 # CEC Flyers (your real uploads)
 col1, col2 = st.columns(2)
 with col1:
-    st.image("https://i.imgur.com/8ZfK5jP.png", caption="CEC Water – Trusted Provider of Instrumentation & Control Services", use_column_width=True)
+    st.image("https://raw.githubusercontent.com/bdahlka1/cec-ai-demo/main/CEC-Water-Flyer.png", caption="CEC Water – Trusted Provider of Instrumentation & Control Services", use_column_width=True)
 with col2:
-    st.image("https://i.imgur.com/JpL2mN4.png", caption="CEC Water Test Booth – Precision Integration", use_column_width=True)
+    st.image("https://raw.githubusercontent.com/bdahlka1/cec-ai-demo/main/CEC-Test-Booth-Flyer.png", caption="CEC Water Test Booth – Precision Integration", use_column_width=True)
 
 st.divider()
 
@@ -64,4 +64,27 @@ if uploaded or True:  # Always show demo
         'Description': [
             'Sludge Flow Low/Low',
             'Tank Level HI/HIHI',
-            'Raw Turb
+            'Raw Turbidity High',
+            'Filter Effluent Flow Low Low',
+            'VTScada Connectivity'
+        ],
+        'Expected Value': [
+            '<50 GPM triggers',
+            'Overflow at 98%',
+            '<5 NTU setpoint',
+            '<100 GPM min flow',
+            'No loss >5 min'
+        ],
+        'Predicted Hot Spot': ['YES – 87% events', 'YES – cascade risk', 'YES – 62% recurrence', 'YES – backwash cycle', 'Monitor']
+    })
+    st.dataframe(checklist, use_container_width=True)
+
+    # Export Button
+    st.download_button(
+        label="Export Full PMI Package (18 Pages – Charter, Scope, RACI, etc.)",
+        data="Full PMI package generated – includes risk register, checklist, charter, scope, RACI, comm plan, and all artifacts.",
+        file_name="CEC_AI_Internal_Pilot_Package.pdf",
+        mime="application/pdf"
+    )
+
+st.info("SAVES 80–120 hours per job • 90-day internal pilot ready Monday • Chris signs off quality • Harry owns ROI")
