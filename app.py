@@ -8,12 +8,10 @@ from copy import copy
 
 st.set_page_config(page_title="CEC Bid Go/No-Go", layout="centered")
 
-# Header – your IBM certificate
-st.image(".devcontainer/IBM for executive certificate.png", use_column_width=True)
 st.title("CEC Controls – Water Bid Go/No-Go Analyzer")
-st.caption("45-minute manual review → 27-second AI-filled scorecard • Branch Manager, Michigan")
+st.caption("Branch Manager Michigan • Internal Tool")
 
-# Load template with full styling
+# Load template
 @st.cache_data
 def load_template():
     wb = openpyxl.load_workbook("Water Bid Go_NoGo Weighting Scale.xlsx")
@@ -30,23 +28,20 @@ with col2:
 
 if spec_pdf and location:
     progress = st.progress(0)
-    status = st.empty()
 
-    # Extract ALL pages with page numbers
+    # Extract ALL pages
     page_texts = {}
     try:
         reader = PyPDF2.PdfReader(spec_pdf)
         total_pages = len(reader.pages)
         for i in range(total_pages):
-            status.text(f"Reading page {i+1}/{total_pages}...")
             progress.progress((i+1)/total_pages)
             page_texts[i+1] = reader.pages[i].extract_text() or ""
-        status.text("All pages read")
     except Exception as e:
         st.error(f"PDF error: {e}")
         st.stop()
 
-    # Scoring + comments with exact page + sentence
+    # Scoring + comments with page + exact sentence
     comments = {}
     earned = {}
 
@@ -79,7 +74,7 @@ if spec_pdf and location:
     total += grade(14, 10, ["instrument list", "schedule of values"], "Instrumentation clearly defined", "Instrumentation vague or high-risk")
     total += grade(15,  5, ["schedule", "milestone", "gantt"], "Schedule realistic", "Schedule missing or unrealistic")
     total += grade(22,  5, ["wauseon", "fulton", "ohio"], "Within target geography", "Outside primary geography")
-    total += grade(23,  5, ["12/9/2025", "bid due"], "Bid timing appropriate", "Bid timing rushed")
+    total += grade(23,  5, ["bid due"], "Bid timing appropriate", "Bid timing rushed")
     total += grade(24,  5, [], "Strategic value present", "Low strategic value")
     total += grade(25,  5, ["liquidated damages"], "No liquidated damages", "Liquidated damages present")
     total += grade(26,  5, ["design-build", "design build"], "Construction only", "Design-Build")
@@ -87,7 +82,7 @@ if spec_pdf and location:
 
     decision = "GO" if total >= 75 else "NO-GO"
 
-    # Build output with perfect styling
+    # Build output with perfect styling (no images)
     out_wb = openpyxl.Workbook()
     ws = out_wb.active
     ws.title = "Go_NoGo_Result"
@@ -124,14 +119,6 @@ if spec_pdf and location:
         file_name=f"Water_Bid_Go_NoGo_{spec_pdf.name}_{datetime.now():%Y%m%d}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-
-    # Footer flyers – safe display
-    colf1, colf2 = st.columns(2)
-    with colf1:
-        st.image(".devcontainer/CEC_Water Test Booth_Flyer.png", use_column_width=True)
-    with colf2:
-        st.image(".devcontainer/CEC_Water.png", use_column_width=True)
-
 else:
     st.info("Upload specification PDF and project location")
 
