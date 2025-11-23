@@ -47,4 +47,46 @@ if spec_pdf and location:
     earned = {}
 
     def grade(row, max_pts, keyword, positive, negative):
-        hits = [(p, text) for
+        hits = [(p, text) for p, text in page_texts.items() if keyword.lower() in text.lower()]
+        points = max_pts if hits else 0
+        if hits:
+            page = hits[0][0]
+            section = "Bid Documents" if "liquidated" in keyword.lower() else "Project Description"
+            comment = f"{points} pts – {positive} (Page {page}, {section})"
+        else:
+            comment = f"0 pts – {negative}"
+        comments[row] = comment
+        earned[row] = points
+        return points
+
+    total = 0
+    total += grade(6,  10, "cec", "CEC listed as approved integrator", "Not listed as approved integrator")
+    total += grade(12, 10, "rockwell|allen-bradley|vtscada|ignition", "Preferred PLC/SCADA platform", "Non-preferred or packaged system")
+    total += grade(13, 10, "scada", "SCADA scope present", "No SCADA scope")
+    total += grade(24,  5, "liquidated damages", "No liquidated damages", "Liquidated damages present")
+    total += grade(26,  5, "installation by others", "Installation by others", "CEC to perform installation")
+    total += grade(17,  5, "ohio|michigan|florida", "Within target geography", "Outside primary geography")
+
+    decision = "GO" if total >= 75 else "NO-GO"
+
+    # Build output with exact styling
+    out_wb = openpyxl.Workbook()
+    ws = out_wb.active
+    ws.title = "Go_NoGo_Result"
+
+    # Copy every cell + full styling
+    for row in template_ws.iter_rows():
+        for cell in row:
+            new_cell = ws.cell(row=cell.row, column=cell.column, value=cell.value)
+            if cell.has_style:
+                new_cell.font = openpyxl.styles.Font(name=cell.font.name, size=cell.font.size,
+                                                   bold=cell.font.bold, italic=cell.font.italic,
+                                                   color=cell.font.color.rgb if cell.font.color else None)
+                new_cell.fill = openpyxl.styles.PatternFill(copy(cell.fill))
+                new_cell.border = openpyxl.styles.Border(copy(cell.border))
+                new_cell.alignment = openpyxl.styles.Alignment(copy(cell.alignment))
+
+    # Write grades and comments
+    for row_num, comment in comments.items():
+        ws.cell(row=row_num, column=4, value=earned.get(row_num, 0))   # Grade
+       
