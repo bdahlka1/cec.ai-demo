@@ -3,39 +3,28 @@ import PyPDF2
 import re
 import openpyxl
 from datetime import datetime
+import pandas as pd
+import io
 
-st.set_page_config(page_title="Blake Dahlka Consulting – Bid Go/No-Go", layout="wide")
+st.set_page_config(page_title="Blake Dahlka – Bid Go/No-Go", layout="centered")
 
-# Header – your IBM certificate
-st.image(".devcontainer/IBM for executive certificate.png", use_column_width=True)
 st.title("Blake Dahlka Consulting")
-st.markdown("### AI-Powered Water & Wastewater Bid Go/No-Go Analyzer")
-st.caption("45-minute manual review → 27-second decision • PMP • GenAI for Executives certified")
+st.markdown("### Water & Wastewater Bid Go/No-Go Analyzer")
+st.caption("45-minute manual review → 27-second decision • PMP • GenAI certified")
 
-# Load your exact xlsx
+# Load your exact weighting file
 @st.cache_data
-def load_max_score():
-    try:
-        wb = openpyxl.load_workbook("Water Bid Go_NoGo Weighting Scale.xlsx")
-        ws = wb.active
-        total = 0
-        for row in ws.iter_rows(min_row=5, max_row=26, values_only=True):
-            if len(row) > 5 and isinstance(row[5], (int, float)):
-                total += row[5]
-        return total
-    except:
-        return 100
+def load_template():
+    wb = openpyxl.load_workbook("Water Bid Go_NoGo Weighting Scale.xlsx", data_only=True)
+    ws = wb.active
+    data = []
+    for row in ws.iter_rows(min_row=3, values_only=True):
+        data.append(row)
+    return data, wb
 
-max_score = load_max_score()
+template_data, template_wb = load_template()
 
-# Sidebar – your resume page
-with st.sidebar:
-    st.image(".devcontainer/generative-ai-overview-for-project-managers.png", use_column_width=True)
-    st.markdown("### Blake Dahlka, PMP")
-    st.markdown("248-787-3791 • blake.dahlka@yahoo.com")
-    st.markdown("[LinkedIn](https://www.linkedin.com/in/blake-dahlka-a0770939)")
-
-# Main input
+# Input
 col1, col2 = st.columns([3,1])
 with col1:
     spec_pdf = st.file_uploader("Upload Specification PDF", type="pdf")
@@ -43,7 +32,7 @@ with col2:
     location = st.text_input("Project City, State", "St. Clair, MI")
 
 if spec_pdf and location:
-    with st.spinner("Analyzing…"):
+    with st.spinner("Analyzing specification…"):
         # Extract text
         reader = PyPDF2.PdfReader(spec_pdf)
         text = ""
@@ -51,7 +40,7 @@ if spec_pdf and location:
             text += page.extract_text() or ""
         t = text.lower()
 
-        # Red flags
+        # Red-flag detection
         red_flags = []
         if not any(x in t for x in ["scada", "plc", "system integrator", "controls integrator"]):
             red_flags.append("No SCADA/PLC/Integrator scope")
@@ -63,52 +52,20 @@ if spec_pdf and location:
         # Decision
         if red_flags:
             decision = "NO-GO"
-            score = 0
+            final_score = 0
         else:
             decision = "GO"
-            score = round(0.92 * max_score, 1)
+            final_score = 92  # base score – you can adjust later
 
-        # Map
-        map_url = f"https://staticmap.openstreetmap.de/staticmap.php?center={location.replace(' ','+')}&zoom=12&size=600x300&maptype=mapnik"
-        st.image(map_url, caption=location)
+        # Build output workbook
+        output_wb = openpyxl.Workbook()
+        ws_out = output_wb.active
+        ws_out.title = "Go_NoGo_Result"
 
-        # Results
-        c1, c2 = st.columns(2)
-        with c1:
-            st.metric("Decision", decision)
-            st.metric("Score", f"{score}/{max_score}")
-        with c2:
-            if red_flags:
-                st.error("Red Flags – stopped analysis")
-                for f in red_flags:
-                    st.write("• " + f)
+        # Copy template structure
+        for r_idx, row in enumerate(template_data, start=1):
+            for c_idx, value in enumerate(row, start=1):
+                ws_out.cell(row=r_idx, column=c_idx, value=value)
 
-        # Download summary
-        summary = f"""Blake Dahlka Consulting – Bid Go/No-Go
-Date: {datetime.now():%Y-%m-%d}
-Project: {spec_pdf.name}
-Location: {location}
-Decision: {decision}
-Score: {score}/{max_score}
-"""
-        if red_flags:
-            summary += "\nRED FLAGS:\n" + "\n".join("• " + f for f in red_flags)
-
-        st.download_button(
-            label="Download Summary",
-            data=summary,
-            file_name=f"GoNoGo_{spec_pdf.name}_{datetime.now():%Y%m%d}.txt",
-            mime="text/plain"
-        )
-
-        # Footer – your two flyers
-        colf1, colf2 = st.columns(2)
-        with colf1:
-            st.image(".devcontainer/CEC_Water Test Booth_Flyer.png", use_column_width=True)
-        with colf2:
-            st.image(".devcontainer/CEC_Water.png", use_column_width=True)
-
-else:
-    st.info("Upload a specification PDF and enter the project location to begin.")
-
-st.caption("© 2025 Blake Dahlka Consulting")
+        # Fill in results
+        ws_out["B35"] = final_score          # Total score
