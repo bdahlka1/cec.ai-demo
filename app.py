@@ -38,11 +38,4 @@ if spec_pdf and location:
             progress.progress((i+1)/total_pages)
             page_texts[i+1] = reader.pages[i].extract_text() or ""
     except Exception as e:
-        st.error(f"PDF error: {e}")
-        st.stop()
-
-    # Scoring + comments
-    comments = {}
-    earned = {}
-
-    def grade(row, max_pts, keywords, positive
+        st.error
