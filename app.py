@@ -56,4 +56,3 @@ if spec_pdf and location:
         points = max_pts if hits else 0
         if hits:
             page, sentence = hits[0]
-            comment = f"{points} pts – {positive}
