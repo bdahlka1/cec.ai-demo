@@ -30,7 +30,7 @@ if spec_pdf and location:
     progress = st.progress(0)
     status = st.empty()
 
-    # Extract text + keep page numbers
+    # Extract text with page numbers
     page_texts = {}
     try:
         reader = PyPDF2.PdfReader(spec_pdf)
@@ -38,38 +38,34 @@ if spec_pdf and location:
         for i in range(total_pages):
             status.text(f"Reading page {i+1}/{total_pages}...")
             progress.progress((i+1)/total_pages)
-            page_text = reader.pages[i].extract_text() or ""
-            page_texts[i+1] = page_text
+            page_texts[i+1] = reader.pages[i].extract_text() or ""
     except:
-        st.warning("PDF partially unreadable – still scoring with available text")
-
-    # Combine all text for keyword search
-    full_text = " ".join(page_texts.values()).lower()
+        st.warning("PDF partially unreadable – still scoring")
 
     # Scoring + traceable comments
     comments = {}
     earned = {}
 
-    def grade(row, max_pts, keyword, positive_reason, negative_reason):
+    def grade(row, max_pts, keyword, positive, negative):
         hits = [(p, text) for p, text in page_texts.items() if keyword.lower() in text.lower()]
         points = max_pts if hits else 0
         if hits:
             page = hits[0][0]
             section = "Bid Documents" if "liquidated" in keyword.lower() else "Project Description"
-            comment = f"{points} pts – {positive_reason} (Page {page}, {section})"
+            comment = f"{points} pts – {positive} (Page {page}, {section})"
         else:
-            comment = f"0 pts – {negative_reason}"
+            comment = f"0 pts – {negative}"
         comments[row] = comment
         earned[row] = points
         return points
 
     total = 0
     total += grade(6,  10, "cec", "CEC listed as approved integrator", "Not listed as approved integrator")
-    total += grade(12, 10, "rockwell|allen-bradley|vtscada|ignition", "Preferred PLC/SCADA platform mentioned", "Non-preferred or packaged system")
+    total += grade(12, 10, "rockwell|allen-bradley|vtscada|ignition", "Preferred PLC/SCADA platform", "Non-preferred or packaged system")
     total += grade(13, 10, "scada", "SCADA scope present", "No SCADA scope")
     total += grade(24,  5, "liquidated damages", "No liquidated damages", "Liquidated damages present")
     total += grade(26,  5, "installation by others", "Installation by others", "CEC to perform installation")
-    # Add more rows as needed – this is the core
+    total += grade(17,  5, "ohio|michigan|florida", "Within target geography", "Outside primary geography")
 
     decision = "GO" if total >= 75 else "NO-GO"
 
@@ -78,7 +74,7 @@ if spec_pdf and location:
     ws = out_wb.active
     ws.title = "Go_NoGo_Result"
 
-    # Copy every cell + styling
+    # Copy every cell + full styling
     for row in template_ws.iter_rows():
         for cell in row:
             new_cell = ws.cell(row=cell.row, column=cell.column, value=cell.value)
@@ -94,3 +90,18 @@ if spec_pdf and location:
     for row_num, comment in comments.items():
         ws.cell(row=row_num, column=4, value=earned.get(row_num, 0))   # Grade
         ws.cell(row=row_num, column=6, value=earned.get(row_num, 0))   # Points
+        ws.cell(row=row_num, column=8, value=comment)                  # Comment with page/section
+
+    ws["B35"] = total
+    ws["B36"] = decision
+    ws["B37"] = location
+    ws["B38"] = datetime.now().strftime("%Y-%m-%d")
+
+    buffer = io.BytesIO()
+    out_wb.save(buffer)
+    buffer.seek(0)
+
+    st.success(f"Analysis complete → {decision} • Score: {total}/100")
+    st.download_button(
+        label="Download Fully Styled Scorecard with Page References",
+        data=buffer
