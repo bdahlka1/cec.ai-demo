@@ -128,3 +128,9 @@ if spec_pdf and location:
         label="Download Filled Scorecard",
         data=buffer,
         file_name=f"Water_Bid_Go_NoGo_{spec_pdf.name}_{datetime.now():%Y%m%d}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+else:
+    st.info("Upload specification PDF and project location")
+
+st.caption("© 2025 CEC Controls – Internal Tool")
