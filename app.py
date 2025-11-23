@@ -41,7 +41,7 @@ if spec_pdf and location:
         st.error(f"PDF error: {e}")
         st.stop()
 
-    # Scoring + comments with page + exact sentence
+    # Scoring + comments with exact page + sentence
     comments = {}
     earned = {}
 
@@ -82,7 +82,7 @@ if spec_pdf and location:
 
     decision = "GO" if total >= 75 else "NO-GO"
 
-    # Build output with perfect styling (no images)
+    # Build output with perfect styling
     out_wb = openpyxl.Workbook()
     ws = out_wb.active
     ws.title = "Go_NoGo_Result"
