@@ -29,7 +29,7 @@ with col2:
 if spec_pdf and location:
     progress = st.progress(0)
 
-    # Extract ALL pages
+    # Extract all pages
     page_texts = {}
     try:
         reader = PyPDF2.PdfReader(spec_pdf)
@@ -41,7 +41,7 @@ if spec_pdf and location:
         st.error(f"PDF error: {e}")
         st.stop()
 
-    # Scoring + comments with exact page + sentence
+    # Scoring + comments
     comments = {}
     earned = {}
 
@@ -73,53 +73,4 @@ if spec_pdf and location:
     total += grade(13, 10, ["vtscada", "ignition", "wonderware", "factorytalk"], "Preferred SCADA brand", "Non-preferred SCADA")
     total += grade(14, 10, ["instrument list", "schedule of values"], "Instrumentation clearly defined", "Instrumentation vague or high-risk")
     total += grade(15,  5, ["schedule", "milestone", "gantt"], "Schedule realistic", "Schedule missing or unrealistic")
-    total += grade(22,  5, ["wauseon", "fulton", "ohio"], "Within target geography", "Outside primary geography")
-    total += grade(23,  5, ["bid due"], "Bid timing appropriate", "Bid timing rushed")
-    total += grade(24,  5, [], "Strategic value present", "Low strategic value")
-    total += grade(25,  5, ["liquidated damages"], "No liquidated damages", "Liquidated damages present")
-    total += grade(26,  5, ["design-build", "design build"], "Construction only", "Design-Build")
-    total += grade(27,  5, ["installation", "field wiring"], "Installation by others", "CEC to perform installation")
-
-    decision = "GO" if total >= 75 else "NO-GO"
-
-    # Build output with perfect styling
-    out_wb = openpyxl.Workbook()
-    ws = out_wb.active
-    ws.title = "Go_NoGo_Result"
-
-    for row in template_ws.iter_rows():
-        for cell in row:
-            new_cell = ws.cell(row=cell.row, column=cell.column, value=cell.value)
-            if cell.has_style:
-                new_cell.font = copy(cell.font)
-                new_cell.border = copy(cell.border)
-                new_cell.fill = copy(cell.fill)
-                new_cell.number_format = cell.number_format
-                new_cell.protection = copy(cell.protection)
-                new_cell.alignment = copy(cell.alignment)
-
-    for row_num, comment in comments.items():
-        ws.cell(row=row_num, column=4, value=earned.get(row_num, 0))
-        ws.cell(row=row_num, column=6, value=earned.get(row_num, 0))
-        ws.cell(row=row_num, column=8, value=comment)
-
-    ws["B35"] = total
-    ws["B36"] = decision
-    ws["B37"] = location
-    ws["B38"] = datetime.now().strftime("%Y-%m-%d")
-
-    buffer = io.BytesIO()
-    out_wb.save(buffer)
-    buffer.seek(0)
-
-    st.success(f"Analysis complete → {decision} • Score: {total}/100")
-    st.download_button(
-        label="Download Filled Scorecard",
-        data=buffer,
-        file_name=f"Water_Bid_Go_NoGo_{spec_pdf.name}_{datetime.now():%Y%m%d}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-else:
-    st.info("Upload specification PDF and project location")
-
-st.caption("© 2025 CEC Controls – Internal Tool")
+    total += grade(22,  5, ["wauseon", "
