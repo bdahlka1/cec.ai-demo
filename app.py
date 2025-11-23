@@ -50,4 +50,10 @@ if spec_pdf and location:
         for kw in keywords:
             for p, txt in page_texts.items():
                 if kw.lower() in txt.lower():
-                    sentence = next((s.strip() for s in txt.split('\n') if kw
+                    sentence = next((s.strip() for s in txt.split('\n') if kw.lower() in s.lower()), txt[:200])
+                    hits.append((p, sentence))
+                    break
+        points = max_pts if hits else 0
+        if hits:
+            page, sentence = hits[0]
+            comment = f"{points} pts – {positive}
