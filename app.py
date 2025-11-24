@@ -31,4 +31,4 @@ st.markdown('''
     <h3 style="color: #003087; margin-top: 0;">How It Works</h3>
     <p style="font-size: 18px; line-height: 1.8; color: #333;">
         Upload any water/wastewater RFP and receive an <strong>instant, executive-ready scorecard</strong> in your exact CEC format — 
-       
+        complete with AI
