@@ -1,5 +1,6 @@
 import streamlit as st
 import PyPDF2
+import re
 import openpyxl
 from datetime import datetime
 import io
@@ -8,7 +9,16 @@ from openpyxl.styles import Alignment
 
 st.set_page_config(page_title="CEC Water Bid Intelligence", layout="wide")
 
-# Elegant header
+# CEC/SCIO logo only (top-right)
+st.markdown("""
+<style>
+    .logo-container {text-align: right; margin-bottom: -50px;}
+</style>
+<div class="logo-container">
+    <img src="https://files.catbox.moe/3v8n5p.png" width="180">
+</div>
+""", unsafe_allow_html=True)
+
 st.markdown("""
 <style>
     .title {font-size: 48px; font-weight: 700; color: #003087; text-align: center; margin-bottom: 0px;}
@@ -18,23 +28,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<p class="title">CEC Controls</p>', unsafe_allow_html=True)
-st.markdown('<p class="subtitle">AI-Accelerated Bid Intelligence Engine</p>', unsafe_allow_html=True)
-
-st.markdown("""
-<div class="explanation">
-<strong>Proprietary Scoring Engine — Built on 20+ Years of Water Controls Expertise</strong><br><br>
-This internal system instantly analyzes any municipal water/wastewater specification package and returns a fully populated Go/No-Go scorecard — complete with risk flags, page references, and traceability.<br><br>
-The engine reads every page of the RFP, applies CEC’s proven evaluation framework, and delivers a decision in under 30 seconds — eliminating 45+ minutes of manual review per bid.<br><br>
-Scoring rules are fully configurable via Bid_Scoring_Calibration.xlsx — allowing leadership to adapt the model to changing market conditions and strategic priorities.
-</div>
-""", unsafe_allow_html=True)
-
-# Load calibration rules
-@st.cache_data
-def load_calibration():
-    wb = openpyxl.load_workbook("Bid_Scoring_Calibration.xlsx")
-    ws = wb.active
+st.markdown('<p class="title">CEC Controls    ws = wb.active
     rules = {}
     for row in ws.iter_rows(min_row=2, values_only=True):
         if row[0]:
