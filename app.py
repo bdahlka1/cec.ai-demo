@@ -134,7 +134,8 @@ if spec_pdf and location:
 
     ws["B35"] = total
     ws["B36"] = decision
-    ws["B37"] = location
+    # Row 37 removed – location now only in row 39
+    ws["B39"] = location
     ws["B38"] = datetime.now().strftime("%Y-%m-%d")
 
     buffer = io.BytesIO()
