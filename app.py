@@ -6,15 +6,10 @@ from datetime import datetime
 import io
 from copy import copy
 from openpyxl.styles import Alignment
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
-from reportlab.lib.units import inch
 
 st.set_page_config(page_title="CEC Water Bid Intelligence", layout="wide")
 
-# CEC + SCIO Logo – perfect size (450px as requested)
+# CEC + SCIO Logo – perfect size
 st.image("CEC + SCIO Image.png", width=450)
 
 # Professional header
@@ -26,29 +21,30 @@ st.markdown("""
     </p>
     <p style="font-size: 18px; color: #555;">
         Instantly transforms any RFP into your fully-filled CEC scorecard • Michigan Branch • Internal Tool
-    </p>
+    p>
 </div>
 """, unsafe_allow_html=True)
 
+# Professional description
 st.markdown("""
 <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 30px; border-radius: 15px; border-left: 8px solid #003087; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
     <h3 style="color: #003087; margin-top: 0;">How It Works</h3>
     <p style="font-size: 18px; line-height: 1.8; color: #333;">
-        Upload any water/wastewater RFP and receive an <strong>instant, executive-ready scorecard</strong> and a <strong>detailed evidence report</strong> showing every sentence that drove the decision.
+        Upload any water/wastewater RFP and receive an <strong>instant scorecard + evidence report</strong> showing every sentence that drove the decision.
     </p>
     <ul style="font-size: 17px; line-height: 1.8; color: #444;">
         <li>Analyzes all pages automatically</li>
-        <li>Extracts project location from the document</li>
-        <li>Scores 15+ decision criteria using your rules</li>
-        <li><strong>Fully customizable</strong> via the <code>Bid_Scoring_Calibration.xls</code> file</li>
-        <li>100% internal • Built and owned by CEC Michigan</li>
+        <li>Extracts project location</li>
+        <li>Scores 15+ criteria</li>
+        <li><strong>Fully customizable</strong> via <code>Bid_Scoring_Calibration.xls</code></li>
+        <li>100% internal • Built by CEC Michigan</li>
     </ul>
 </div>
 """, unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# Load template once at startup
+# Load template once
 @st.cache_data
 def load_template():
     wb = openpyxl.load_workbook("Water Bid Go_NoGo Weighting Scale.xlsx")
@@ -72,7 +68,7 @@ if spec_pdf:
             full_text += txt + "\n"
             page_texts[i + 1] = txt
     except Exception as e:
-        st.error(f"PDF read error: {e}")
+        st.error(f"PDF error: {e}")
         st.stop()
 
     # Auto-detect location
@@ -82,10 +78,10 @@ if spec_pdf:
         location = f"{city_state.group(1)}, {city_state.group(2)}"
     st.success(f"**Project Location Detected:** {location}")
 
-    # Scoring with evidence capture
+    # Scoring with evidence
     comments = {}
     earned = {}
-    evidence = {}  # Stores (page, sentence) for PDF
+    evidence = {}
 
     def grade(row, max_pts, keywords, positive, negative):
         hits = []
@@ -99,63 +95,5 @@ if spec_pdf:
         if hits:
             page, sentence = hits[0]
             comment = f"{points} pts – {positive} (Page {page})"
-            evidence[row] = (page, sentence)
-        else:
-            comment = f"0 pts – {negative}"
-            evidence[row] = (None, "No matching text found in RFP")
-        comments[row] = comment
-        earned[row] = points
-        return points
-
-    total = 0
-    total += grade(6, 10, ["cec", "cec controls"], "CEC listed as approved integrator", "Not listed as approved integrator")
-    total += grade(7, 5, ["bid list", "prequalified", "invited bidders"], "Clear bidder list exists", "Bidder list unclear")
-    total += grade(8, 10, ["cec"], "<3 integrators named", ">5 integrators or open bidding")
-    total += grade(9, 5, ["preferred gc", "direct municipal"], "Preferred relationship", "Not preferred")
-    total += grade(11, 5, ["scada", "hmi", "software platform"], "SCADA system clearly defined", "SCADA requirements vague")
-    total += grade(12, 10, ["rockwell", "allen-bradley", "siemens"], "Preferred PLC brand", "Non-preferred or packaged PLC")
-    total += grade(13, 10, ["vtscada", "ignition", "wonderware", "factorytalk"], "Preferred SCADA brand", "Non-preferred SCADA")
-    total += grade(14, 10, ["instrument list", "schedule of values"], "Instrumentation clearly defined", "Instrumentation vague or high-risk")
-    total += grade(15, 5, ["schedule", "milestone", "gantt"], "Schedule realistic", "Schedule missing or unrealistic")
-    total += grade(22, 5, ["wauseon", "fulton", "ohio"], "Within target geography", "Outside primary geography")
-    total += grade(23, 5, ["bid due"], "Bid timing appropriate", "Bid timing rushed")
-    total += grade(24, 5, [], "Strategic value present", "Low strategic value")
-    total += grade(25, 5, ["liquidated damages"], "No liquidated damages", "Liquidated damages present")
-    total += grade(26, 5, ["design-build", "design build"], "Construction only", "Design-Build")
-    total += grade(27, 5, ["installation", "field wiring"], "Installation by others", "CEC to perform installation")
-
-    decision = "GO" if total >= 75 else "NO-GO"
-
-    # Build Excel scorecard
-    out_wb = openpyxl.Workbook()
-    ws = out_wb.active
-    ws.title = "Go_NoGo_Result"
-
-    for row in template_ws.iter_rows():
-        for cell in row:
-            new_cell = ws.cell(row=cell.row, column=cell.column, value=cell.value)
-            if cell.has_style:
-                new_cell.font = copy(cell.font)
-                new_cell.border = copy(cell.border)
-                new_cell.fill = copy(cell.fill)
-                new_cell.number_format = cell.number_format
-                new_cell.protection = copy(cell.protection)
-                new_cell.alignment = copy(cell.alignment)
-        rd = template_ws.row_dimensions.get(row[0].row)
-        if rd and rd.height is not None:
-            ws.row_dimensions[row[0].row].height = rd.height
-
-    for col, dim in template_ws.column_dimensions.items():
-        if dim.width is not None:
-            ws.column_dimensions[col].width = dim.width
-
-    wrap_alignment = Alignment(wrap_text=True)
-    for cell in ws["G"]:
-        cell.alignment = wrap_alignment
-
-    for row_num, comment in comments.items():
-        ws.cell(row=row_num, column=4, value=earned.get(row_num, 0))
-        ws.cell(row=row_num, column=6, value=earned.get(row_num, 0))
-        ws.cell(row=row_num, column=7, value=comment)
-
-    ws["B35"] = total
+            evidence[row] = (page, sentence.replace("\n", " ").replace("  ", " "))
+        else
