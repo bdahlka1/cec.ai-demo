@@ -5,13 +5,33 @@ import openpyxl
 from datetime import datetime
 import io
 from copy import copy
+from openpyxl.styles import Alignment
 
 st.set_page_config(page_title="CEC Bid Go/No-Go", layout="centered")
 
 st.title("CEC Controls – Water Bid Go/No-Go Analyzer")
 st.caption("Branch Manager Michigan • Internal Tool")
 
-# Load template
+# Load calibration rules
+@st.cache_data
+def load_calibration():
+    wb = openpyxl.load_workbook("Bid_Scoring_Calibration.xls")
+    ws = wb.active
+    rules = {}
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        if row[0]:  # Row number
+            rules[int(row[0])] = {
+                "max": row[2] or 0,
+                "pos_kw": [k.strip() for k in (row[3] or "").split(",") if k.strip()],
+                "neg_kw": [k.strip() for k in (row[4] or "").split(",") if k.strip()],
+                "pos_pts": row[5] or row[2],
+                "neg_pts": row[6] or 0
+            }
+    return rules
+
+rules = load_calibration()
+
+# Load template for styling
 @st.cache_data
 def load_template():
     wb = openpyxl.load_workbook("Water Bid Go_NoGo Weighting Scale.xlsx")
@@ -41,48 +61,24 @@ if spec_pdf and location:
         st.error(f"PDF error: {e}")
         st.stop()
 
-    # Scoring + comments
+    # Scoring from calibration
     comments = {}
     earned = {}
-
-    def grade(row, max_pts, keywords, positive, negative):
-        hits = []
-        for kw in keywords:
-            for p, txt in page_texts.items():
-                if kw.lower() in txt.lower():
-                    sentence = next((s.strip() for s in txt.split('\n') if kw.lower() in s.lower()), txt[:200])
-                    hits.append((p, sentence))
-                    break
-        points = max_pts if hits else 0
-        if hits:
-            page, sentence = hits[0]
-            comment = f"{points} pts – {positive} (Page {page})"
-        else:
-            comment = f"0 pts – {negative}"
-        comments[row] = comment
-        earned[row] = points
-        return points
-
     total = 0
-    total += grade(6,  10, ["cec", "cec controls"], "CEC listed as approved integrator", "Not listed as approved integrator")
-    total += grade(7,   5, ["bid list", "prequalified", "invited bidders"], "Clear bidder list exists", "Bidder list unclear")
-    total += grade(8,  10, ["cec"], "<3 integrators named", ">5 integrators or open bidding")
-    total += grade(9,   5, ["preferred gc", "direct municipal"], "Preferred relationship", "Not preferred")
-    total += grade(11,  5, ["scada", "hmi", "software platform"], "SCADA system clearly defined", "SCADA requirements vague")
-    total += grade(12, 10, ["rockwell", "allen-bradley", "siemens"], "Preferred PLC brand", "Non-preferred or packaged PLC")
-    total += grade(13, 10, ["vtscada", "ignition", "wonderware", "factorytalk"], "Preferred SCADA brand", "Non-preferred SCADA")
-    total += grade(14, 10, ["instrument list", "schedule of values"], "Instrumentation clearly defined", "Instrumentation vague or high-risk")
-    total += grade(15,  5, ["schedule", "milestone", "gantt"], "Schedule realistic", "Schedule missing or unrealistic")
-    total += grade(22,  5, ["wauseon", "fulton", "ohio"], "Within target geography", "Outside primary geography")
-    total += grade(23,  5, ["bid due"], "Bid timing appropriate", "Bid timing rushed")
-    total += grade(24,  5, [], "Strategic value present", "Low strategic value")
-    total += grade(25,  5, ["liquidated damages"], "No liquidated damages", "Liquidated damages present")
-    total += grade(26,  5, ["design-build", "design build"], "Construction only", "Design-Build")
-    total += grade(27,  5, ["installation", "field wiring"], "Installation by others", "CEC to perform installation")
+    full_text = " ".join(page_texts.values()).lower()
+
+    for row_num, rule in rules.items():
+        hits_pos = any(kw in full_text for kw in rule["pos_kw"])
+        hits_neg = any(kw in full_text for kw in rule["neg_kw"])
+        points = rule["pos_pts"] if hits_pos and not hits_neg else rule["neg_pts"] if hits_neg else 0
+        total += points
+        comment = f"{points} pts – {'Positive match' if hits_pos else 'Negative match' if hits_neg else 'No match'}"
+        comments[row_num] = comment
+        earned[row_num] = points
 
     decision = "GO" if total >= 75 else "NO-GO"
 
-    # Build output with perfect styling + column widths + row heights
+    # Build output with perfect styling + column widths + row heights + wrap text in G
     out_wb = openpyxl.Workbook()
     ws = out_wb.active
     ws.title = "Go_NoGo_Result"
@@ -108,11 +104,12 @@ if spec_pdf and location:
         if dim.width is not None:
             ws.column_dimensions[col].width = dim.width
 
-    # Write grades and comments to Column G
+    # Write grades and comments to Column G (wrap text)
     for row_num, comment in comments.items():
         ws.cell(row=row_num, column=4, value=earned.get(row_num, 0))  # Grade
         ws.cell(row=row_num, column=6, value=earned.get(row_num, 0))  # Points
-        ws.cell(row=row_num, column=7, value=comment)                 # Comment in G
+        comment_cell = ws.cell(row=row_num, column=7, value=comment)  # Comment in G
+        comment_cell.alignment = Alignment(wrap_text=True, vertical="top")
 
     ws["B35"] = total
     ws["B36"] = decision
