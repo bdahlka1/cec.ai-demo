@@ -6,35 +6,43 @@ from datetime import datetime
 import io
 from copy import copy
 
-st.set_page_config(page_title="CEC Water Bid AI", layout="wide")
+st.set_page_config(page_title="CEC Water Bid Intelligence", layout="wide")
 
-# Hero branding
-st.image("CEC + SCIO Image.png", use_column_width=True)
+# CEC + SCIO Logo – perfect size
+st.image("CEC + SCIO Image.png", width=900, use_column_width=False)
 
+# Professional header
 st.markdown("""
-<div style="text-align: center; padding: 20px;">
-    <h1 style="color: #003087; font-size: 42px;">CEC Controls – Water Bid Intelligence</h1>
-    <p style="font-size: 22px; color: #444;">
-        AI-Powered Go/No-Go Decision Engine • Michigan Branch
+<div style="text-align: center; padding: 30px 0;">
+    <h1 style="color: #003087; font-size: 48px; margin: 0;">Water Bid Intelligence</h1>
+    <p style="font-size: 24px; color: #003087; margin: 10px 0;">
+        AI-Powered Go/No-Go Decision Engine
+    </p>
+    <p style="font-size: 18px; color: #555;">
+        Instantly transforms any RFP into your fully-filled CEC scorecard • Michigan Branch • Internal Tool
     </p>
 </div>
 """, unsafe_allow_html=True)
 
+# Professional description box
 st.markdown("""
-<div style="background: #f8f9fa; padding: 25px; border-radius: 12px; border-left: 6px solid #003087;">
-    <h3 style="color: #003087;">What this tool does</h3>
-    <p style="font-size: 18px; line-height: 1.7;">
-        Upload any water/wastewater RFP and receive an <strong>instant, fully-filled Go/No-Go scorecard</strong> 
-        in your exact CEC format — complete with AI-generated comments, page references, and a clear recommendation.
+<div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 30px; border-radius: 15px; border-left: 8px solid #003087; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+    <h3 style="color: #003087; margin-top: 0;">How It Works</h3>
+    <p style="font-size: 18px; line-height: 1.8; color: #333;">
+        Upload any water/wastewater RFP and receive an <strong>instant, executive-ready scorecard</strong> in your exact CEC format — 
+        complete with AI-generated comments, page references, and a clear GO/NO-GO recommendation.
     </p>
-    <p style="font-size: 16px; color: #555;">
-        • Scores 15+ decision criteria automatically<br>
-        • Extracts project location from the RFP<br>
-        • Fully customizable via the <code>Bid_Scoring_Calibration.xls</code> file (no code changes required)<br>
-        • 100% internal tool – built and owned by CEC Michigan
-    </p>
+    <ul style="font-size: 17px; line-height: 1.8; color: #444;">
+        <li>Analyzes all pages automatically</li>
+        <li>Extracts project location from the document</li>
+        <li>Scores 15+ decision criteria using your rules</li>
+        <li><strong>Fully customizable</strong> via the <code>Bid_Scoring_Calibration.xls</code> file — no code changes needed</li>
+        <li>100% internal • Built and owned by CEC Michigan</li>
+    </ul>
 </div>
 """, unsafe_allow_html=True)
+
+st.markdown("<br>", unsafe_allow_html=True)
 
 spec_pdf = st.file_uploader("Upload Specification PDF", type="pdf")
 
@@ -58,11 +66,11 @@ if spec_pdf:
         st.stop()
 
     # Auto-detect City & State
-    location = "Unknown"
+    location = "Not detected"
     city_state = re.search(r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s*,\s*([A-Z]{2})\b", full_text, re.I)
     if city_state:
         location = f"{city_state.group(1)}, {city_state.group(2)}"
-    st.info(f"**Detected Project Location:** {location}")
+    st.success(f"**Project Location Detected:** {location}")
 
     # Scoring + comments
     comments = {}
@@ -142,15 +150,15 @@ if spec_pdf:
     out_wb.save(buffer)
     buffer.seek(0)
 
-    st.success(f"Analysis complete → {decision} • Score: {total}/100")
+    st.success(f"**Analysis Complete** → {decision} • Score: {total}/100")
     st.download_button(
-        label="Download Filled Scorecard",
+        label="⬇️ Download Executive Scorecard",
         data=buffer,
-        file_name=f"Water_Bid_Go_NoGo_{spec_pdf.name}_{datetime.now():%Y%m%d}.xlsx",
+        file_name=f"CEC_Water_Bid_Decision_{datetime.now():%Y%m%d}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
 else:
-    st.info("Upload specification PDF")
+    st.info("Upload specification PDF to begin analysis")
 
-st.caption("© 2025 CEC Controls – Internal Tool")
+st.caption("© 2025 CEC Controls – Internal Executive Tool")
