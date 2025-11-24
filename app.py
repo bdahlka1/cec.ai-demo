@@ -31,20 +31,4 @@ st.markdown('''
     <h3 style="color: #003087; margin-top: 0;">How It Works</h3>
     <p style="font-size: 18px; line-height: 1.8; color: #333;">
         Upload any water/wastewater RFP and receive an <strong>instant, executive-ready scorecard</strong> in your exact CEC format — 
-        complete with AI-generated comments, page references, and a clear GO/NO-GO recommendation.
-    </p>
-    <ul style="font-size: 17px; line-height: 1.8; color: #444;">
-        <li>Analyzes all pages automatically</li>
-        <li>Extracts project location from the document</li>
-        <li>Scores 15+ decision criteria using your rules</li>
-        <li><strong>Fully customizable</strong> via the <code>Bid_Scoring_Calibration.xls</code> file — no code changes needed</li>
-        <li>100% internal • Built and owned by CEC Michigan</li>
-    </ul>
-</div>
-''', unsafe_allow_html=True)
-
-st.markdown("<br>", unsafe_allow_html=True)
-
-spec_pdf = st.file_uploader("Upload Specification PDF", type="pdf")
-
-if spec_pdf
+       
