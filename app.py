@@ -12,23 +12,39 @@ st.set_page_config(page_title="CEC Water Bid Intelligence", layout="wide")
 # CEC/SCIO logo only (top-right)
 st.markdown("""
 <style>
-    .logo-container {text-align: right; margin-bottom: -50px;}
+    .logo-container {text-align: right; margin-bottom: -60px;}
 </style>
 <div class="logo-container">
-    <img src="https://files.catbox.moe/3v8n5p.png" width="180">
+    <img src="https://raw.githubusercontent.com/bdahlka1/cec-ai-demo/main/CEC%20%2B%20SCIO%20Image" width="200">
 </div>
 """, unsafe_allow_html=True)
 
 st.markdown("""
 <style>
-    .title {font-size: 48px; font-weight: 700; color: #003087; text-align: center; margin-bottom: 0px;}
-    .subtitle {font-size: 26px; color: #003087; text-align: center; margin-top: -10px; margin-bottom: 30px;}
-    .explanation {font-size: 18px; line-height: 1.8; color: #333; background-color: #f8f9fa; padding: 30px; border-radius: 12px; margin: 40px 0;}
-    .footer {text-align: center; margin-top: 80px; font-size: 14px; color: #666;}
+    .title {font-size: 52px; font-weight: 700; color: #003087; text-align: center; margin-bottom: 5px;}
+    .subtitle {font-size: 28px; color: #003087; text-align: center; margin-top: -15px; margin-bottom: 40px;}
+    .explanation {font-size: 18px; line-height: 1.8; color: #333; background-color: #f8f9fa; padding: 30px; border-radius: 12px; margin: 40px 0; border-left: 5px solid #003087;}
+    .footer {text-align: center; margin-top: 100px; font-size: 14px; color: #666;}
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<p class="title">CEC Controls    ws = wb.active
+st.markdown('<p class="title">CEC Controls</p>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">AI-Accelerated Bid Intelligence Engine</p>', unsafe_allow_html=True)
+
+st.markdown("""
+<div class="explanation">
+<strong>Proprietary Scoring Engine — Built on 20+ Years of Water Controls Expertise</strong><br><br>
+This internal system instantly analyzes any municipal water/wastewater specification package and returns a fully populated Go/No-Go scorecard — complete with risk flags, page references, and traceability.<br><br>
+The engine reads every page of the RFP, applies CEC’s proven evaluation framework, and delivers a decision in under 30 seconds — eliminating 45+ minutes of manual review per bid.<br><br>
+Scoring rules are fully configurable via <code>Bid_Scoring_Calibration.xlsx</code> — allowing leadership to adapt the model to changing market conditions and strategic priorities.
+</div>
+""", unsafe_allow_html=True)
+
+# Load calibration rules
+@st.cache_data
+def load_calibration():
+    wb = openpyxl.load_workbook("Bid_Scoring_Calibration.xlsx")
+    ws = wb.active
     rules = {}
     for row in ws.iter_rows(min_row=2, values_only=True):
         if row[0]:
@@ -52,34 +68,38 @@ def load_template():
 
 template_wb, template_ws = load_template()
 
-col1, col2 = st.columns([3,1])
-with col1:
-    spec_pdf = st.file_uploader("Upload Specification PDF", type="pdf")
-with col2:
-    location = st.text_input("Project City, State", "Wauseon, OH")
+spec_pdf = st.file_uploader("Upload Specification PDF", type="pdf")
 
-if spec_pdf and location:
+if spec_pdf:
     progress = st.progress(0)
 
     page_texts = {}
+    location = "Location Not Found"
     try:
         reader = PyPDF2.PdfReader(spec_pdf)
         total_pages = len(reader.pages)
         for i in range(total_pages):
             progress.progress((i+1)/total_pages)
-            page_texts[i+1] = reader.pages[i].extract_text() or ""
+            text = reader.pages[i].extract_text() or ""
+            page_texts[i+1] = text
+
+            if i < 5:
+                match = re.search(r"\b([A-Z][a-z]+(?:\s[A-Z][a-z]+)*),\s*(OH|MI|FL|GA|AL|KY|MO|KS|TN)\b", text, re.IGNORECASE)
+                if match:
+                    location = match.group(0)
     except Exception as e:
         st.error(f"PDF error: {e}")
         st.stop()
 
+    # Scoring
     comments = {}
     earned = {}
     total = 0
     full_text = " ".join(page_texts.values()).lower()
 
     for row_num, rule in rules.items():
-        hits_pos = any(kw in full_text for kw in rule["pos_kw"])
-        hits_neg = any(kw in full_text for kw in rule["neg_kw"])
+        hits_pos = any(kw.lower() in full_text for kw in rule["pos_kw"])
+        hits_neg = any(kw.lower() in full_text for kw in rule["neg_kw"])
         points = rule["pos_pts"] if hits_pos and not hits_neg else rule["neg_pts"] if hits_neg else 0
         total += points
 
@@ -87,28 +107,30 @@ if spec_pdf and location:
         hit_sentence = ""
         for p, txt in page_texts.items():
             txt_lower = txt.lower()
-            if any(kw in txt_lower for kw in rule["pos_kw"]) or any(kw in txt_lower for kw in rule["neg_kw"]):
+            if any(kw.lower() in txt_lower for kw in rule["pos_kw"]) or any(kw.lower() in txt_lower for kw in rule["neg_kw"]):
                 hit_page = p
-                for line in txt.split('\n'):
-                    if any(kw in line.lower() for kw in rule["pos_kw"] + rule["neg_kw"]):
+                for line in txt.splitlines():
+                    if any(kw.lower() in line.lower() for kw in rule["pos_kw"] + rule["neg_kw"]):
                         hit_sentence = line.strip()
                         break
                 if hit_sentence:
                     break
-        
+
         comment = f"{points} pts"
         if hit_page:
             comment += f" – Page {hit_page}"
             if hit_sentence:
                 short = hit_sentence[:120] + ("..." if len(hit_sentence) > 120 else "")
                 comment += f": \"{short}\""
-        
+        else:
+            comment += " – No match found"
+
         comments[row_num] = comment
         earned[row_num] = points
 
     decision = "GO" if total >= 75 else "NO-GO"
 
-    # Build perfect output
+    # Build output
     out_wb = openpyxl.Workbook()
     ws = out_wb.active
     ws.title = "Go_NoGo_Result"
@@ -146,14 +168,14 @@ if spec_pdf and location:
     out_wb.save(buffer)
     buffer.seek(0)
 
-    st.success(f"Analysis complete — {decision} • Score: {total}/100")
+    st.success(f"Analysis Complete — {decision} • Score: {total}/100 • Location: {location}")
     st.download_button(
         label="Download Executive Scorecard",
         data=buffer,
-        file_name=f"CEC_Water_Bid_Go_NoGo_{spec_pdf.name}_{datetime.now():%Y%m%d}.xlsx",
+        file_name=f"CEC_Water_Bid_{spec_pdf.name}_{datetime.now():%Y%m%d}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 else:
-    st.info("Upload specification PDF and project location")
+    st.info("Upload specification PDF to begin analysis")
 
 st.markdown('<div class="footer">© 2025 CEC Controls – Proprietary & Confidential</div>', unsafe_allow_html=True)
