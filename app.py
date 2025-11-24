@@ -45,4 +45,6 @@ st.markdown('''
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-spec_pdf = st.file_u
+spec_pdf = st.file_uploader("Upload Specification PDF", type="pdf")
+
+if spec_pdf
