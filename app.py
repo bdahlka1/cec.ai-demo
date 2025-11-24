@@ -21,7 +21,7 @@ st.markdown("""
     </p>
     <p style="font-size: 18px; color: #555;">
         Instantly transforms any RFP into your fully-filled CEC scorecard • Michigan Branch • Internal Tool
-    p>
+    </p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -96,4 +96,138 @@ if spec_pdf:
             page, sentence = hits[0]
             comment = f"{points} pts – {positive} (Page {page})"
             evidence[row] = (page, sentence.replace("\n", " ").replace("  ", " "))
-        else
+        else:
+            comment = f"0 pts – {negative}"
+            evidence[row] = (None, "No matching text found")
+        comments[row] = comment
+        earned[row] = points
+        return points
+
+    total = 0
+    total += grade(6, 10, ["cec", "cec controls"], "CEC listed as approved integrator", "Not listed as approved integrator")
+    total += grade(7, 5, ["bid list", "prequalified", "invited bidders"], "Clear bidder list exists", "Bidder list unclear")
+    total += grade(8, 10, ["cec"], "<3 integrators named", ">5 integrators or open bidding")
+    total += grade(9, 5, ["preferred gc", "direct municipal"], "Preferred relationship", "Not preferred")
+    total += grade(11, 5, ["scada", "hmi", "software platform"], "SCADA system clearly defined", "SCADA requirements vague")
+    total += grade(12, 10, ["rockwell", "allen-bradley", "siemens"], "Preferred PLC brand", "Non-preferred or packaged PLC")
+    total += grade(13, 10, ["vtscada", "ignition", "wonderware", "factorytalk"], "Preferred SCADA brand", "Non-preferred SCADA")
+    total += grade(14, 10, ["instrument list", "schedule of values"], "Instrumentation clearly defined", "Instrumentation vague or high-risk")
+    total += grade(15, 5, ["schedule", "milestone", "gantt"], "Schedule realistic", "Schedule missing or unrealistic")
+    total += grade(22, 5, ["wauseon", "fulton", "ohio"], "Within target geography", "Outside primary geography")
+    total += grade(23, 5, ["bid due"], "Bid timing appropriate", "Bid timing rushed")
+    total += grade(24, 5, [], "Strategic value present", "Low strategic value")
+    total += grade(25, 5, ["liquidated damages"], "No liquidated damages", "Liquidated damages present")
+    total += grade(26, 5, ["design-build", "design build"], "Construction only", "Design-Build")
+    total += grade(27, 5, ["installation", "field wiring"], "Installation by others", "CEC to perform installation")
+
+    decision = "GO" if total >= 75 else "NO-GO"
+
+    # Build Excel scorecard
+    out_wb = openpyxl.Workbook()
+    ws = out_wb.active
+    ws.title = "Go_NoGo_Result"
+
+    for row in template_ws.iter_rows():
+        for cell in row:
+            new_cell = ws.cell(row=cell.row, column=cell.column, value=cell.value)
+            if cell.has_style:
+                new_cell.font = copy(cell.font)
+                new_cell.border = copy(cell.border)
+                new_cell.fill = copy(cell.fill)
+                new_cell.number_format = cell.number_format
+                new_cell.protection = copy(cell.protection)
+                new_cell.alignment = copy(cell.alignment)
+        rd = template_ws.row_dimensions.get(row[0].row)
+        if rd and rd.height is not None:
+            ws.row_dimensions[row[0].row].height = rd.height
+
+    for col, dim in template_ws.column_dimensions.items():
+        if dim.width is not None:
+            ws.column_dimensions[col].width = dim.width
+
+    # Wrap text in Column G
+    wrap_alignment = Alignment(wrap_text=True)
+    for cell in ws["G"]:
+        cell.alignment = wrap_alignment
+
+    for row_num, comment in comments.items():
+        ws.cell(row=row_num, column=4, value=earned.get(row_num, 0))
+        ws.cell(row=row_num, column=6, value=earned.get(row_num, 0))
+        ws.cell(row=row_num, column=7, value=comment)
+
+    ws["B35"] = total
+    ws["B36"] = decision
+    ws["B37"] = location
+    ws["B38"] = datetime.now().strftime("%Y-%m-%d")
+
+    excel_buffer = io.BytesIO()
+    out_wb.save(excel_buffer)
+    excel_buffer.seek(0)
+
+    # Beautiful HTML Evidence Report
+    html_evidence = f"""
+    <html>
+    <head>
+        <title>CEC Bid Decision Evidence - {location}</title>
+        <style>
+            body {{ font-family: Arial, sans-serif; margin: 40px; background: #f9f9f9; }}
+            .header {{ background: #003087; color: white; padding: 20px; text-align: center; border-radius: 10px; }}
+            .section {{ background: white; padding: 20px; margin: 20px 0; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+            .highlight {{ background: #fff3cd; padding: 15px; border-left: 6px solid #ffc107; margin: 10px 0; }}
+            .no-evidence {{ color: #888; font-style: italic; }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>CEC Water Bid Intelligence</h1>
+            <h2>Decision Evidence Report</h2>
+            <p><strong>Project:</strong> {location} | <strong>Score:</strong> {total}/100 → <strong style="color: {'#28a745' if decision=='GO' else '#dc3545'}">{decision}</strong></p>
+        </div>
+        <div class="section">
+            <h2>Scoring Evidence</h2>
+    """
+
+    for row_num in sorted(comments.keys()):
+        comment = comments[row_num]
+        page, quote = evidence.get(row_num, (None, "No text found"))
+        clean_quote = quote.replace("<", "&lt;").replace(">", "&gt;")
+        html_evidence += f"""
+            <div class="section">
+                <strong>Row {row_num}:</strong> {comment}<br><br>
+                {f'<div class="highlight"><strong>Page {page}:</strong><br>{clean_quote}</div>' if page else '<span class="no-evidence">No matching text found in RFP</span>'}
+            </div>
+        """
+
+    html_evidence += """
+        </div>
+        <div style="text-align: center; margin-top: 50px; color: #666;">
+            <p>© 2025 CEC Controls – Internal Executive Tool</p>
+        </div>
+    </body>
+    </html>
+    """
+
+    st.success(f"**Analysis Complete** → {decision} • Score: {total}/100")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.download_button(
+            label="Download Excel Scorecard",
+            data=excel_buffer,
+            file_name=f"CEC_Scorecard_{datetime.now():%Y%m%d}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    with col2:
+        st.download_button(
+            label="Download Evidence Report (HTML → Save as PDF)",
+            data=html_evidence,
+            file_name=f"CEC_Evidence_Report_{datetime.now():%Y%m%d}.html",
+            mime="text/html"
+        )
+
+    st.info("**Pro tip:** Open the HTML report → Press Ctrl+P → Save as PDF for a beautiful version")
+
+else:
+    st.info("Upload specification PDF to begin analysis")
+
+st.caption("© 2025 CEC Controls – Internal Executive Tool")
