@@ -8,12 +8,10 @@ from copy import copy
 
 st.set_page_config(page_title="CEC Bid Go/No-Go", layout="centered")
 
-# ONLY the CEC logo
-col_logo, col_title = st.columns([1,5])
-with col_logo:
-    st.image("CEC_Logo.png", width=140)
-with col_title:
-    st.title("CEC Controls – Water Bid Go/No-Go Analyzer")
+# ONLY the CEC + SCIO image from root
+st.image("CEC + SCIO Image.png", use_column_width=True)
+
+st.title("CEC Controls – Water Bid Go/No-Go Analyzer")
 st.caption("Branch Manager Michigan • Internal Tool")
 
 # Load template
@@ -87,11 +85,12 @@ if spec_pdf and location:
 
     decision = "GO" if total >= 75 else "NO-GO"
 
-    # Build output with perfect styling
+    # Build output with perfect styling + column widths + row heights
     out_wb = openpyxl.Workbook()
     ws = out_wb.active
     ws.title = "Go_NoGo_Result"
 
+    # Copy every cell + full styling
     for row in template_ws.iter_rows():
         for cell in row:
             new_cell = ws.cell(row=cell.row, column=cell.column, value=cell.value)
@@ -102,18 +101,21 @@ if spec_pdf and location:
                 new_cell.number_format = cell.number_format
                 new_cell.protection = copy(cell.protection)
                 new_cell.alignment = copy(cell.alignment)
+        # Copy row height safely
         rd = template_ws.row_dimensions.get(row[0].row)
         if rd and rd.height is not None:
             ws.row_dimensions[row[0].row].height = rd.height
 
+    # Copy column widths safely
     for col, dim in template_ws.column_dimensions.items():
         if dim.width is not None:
             ws.column_dimensions[col].width = dim.width
 
+    # Write grades and comments to Column G
     for row_num, comment in comments.items():
-        ws.cell(row=row_num, column=4, value=earned.get(row_num, 0))
-        ws.cell(row=row_num, column=6, value=earned.get(row_num, 0))
-        ws.cell(row=row_num, column=7, value=comment)
+        ws.cell(row=row_num, column=4, value=earned.get(row_num, 0))  # Grade
+        ws.cell(row=row_num, column=6, value=earned.get(row_num, 0))  # Points
+        ws.cell(row=row_num, column=7, value=comment)                 # Comment in G
 
     ws["B35"] = total
     ws["B36"] = decision
