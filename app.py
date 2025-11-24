@@ -6,10 +6,15 @@ from datetime import datetime
 import io
 from copy import copy
 from openpyxl.styles import Alignment
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
+from reportlab.lib.units import inch
 
 st.set_page_config(page_title="CEC Water Bid Intelligence", layout="wide")
 
-# CEC + SCIO Logo – reduced by 50% again (now 450px)
+# CEC + SCIO Logo – perfect size (450px as requested)
 st.image("CEC + SCIO Image.png", width=450)
 
 # Professional header
@@ -25,19 +30,17 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Professional description box
 st.markdown("""
 <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 30px; border-radius: 15px; border-left: 8px solid #003087; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
     <h3 style="color: #003087; margin-top: 0;">How It Works</h3>
     <p style="font-size: 18px; line-height: 1.8; color: #333;">
-        Upload any water/wastewater RFP and receive an <strong>instant, executive-ready scorecard</strong> in your exact CEC format — 
-        complete with AI-generated comments, page references, and a clear GO/NO-GO recommendation.
+        Upload any water/wastewater RFP and receive an <strong>instant, executive-ready scorecard</strong> and a <strong>detailed evidence report</strong> showing every sentence that drove the decision.
     </p>
     <ul style="font-size: 17px; line-height: 1.8; color: #444;">
         <li>Analyzes all pages automatically</li>
         <li>Extracts project location from the document</li>
         <li>Scores 15+ decision criteria using your rules</li>
-        <li><strong>Fully customizable</strong> via the <code>Bid_Scoring_Calibration.xls</code> file — no code changes needed</li>
+        <li><strong>Fully customizable</strong> via the <code>Bid_Scoring_Calibration.xls</code> file</li>
         <li>100% internal • Built and owned by CEC Michigan</li>
     </ul>
 </div>
@@ -79,24 +82,27 @@ if spec_pdf:
         location = f"{city_state.group(1)}, {city_state.group(2)}"
     st.success(f"**Project Location Detected:** {location}")
 
-    # Scoring
+    # Scoring with evidence capture
     comments = {}
     earned = {}
+    evidence = {}  # Stores (page, sentence) for PDF
 
     def grade(row, max_pts, keywords, positive, negative):
         hits = []
         for kw in keywords:
             for p, txt in page_texts.items():
                 if kw.lower() in txt.lower():
-                    sentence = next((s.strip() for s in txt.split('\n') if kw.lower() in s.lower()), txt[:200])
+                    sentence = next((s.strip() for s in txt.split('\n') if kw.lower() in s.lower()), txt[:300])
                     hits.append((p, sentence))
                     break
         points = max_pts if hits else 0
         if hits:
-            page, _ = hits[0]
+            page, sentence = hits[0]
             comment = f"{points} pts – {positive} (Page {page})"
+            evidence[row] = (page, sentence)
         else:
             comment = f"0 pts – {negative}"
+            evidence[row] = (None, "No matching text found in RFP")
         comments[row] = comment
         earned[row] = points
         return points
@@ -120,7 +126,7 @@ if spec_pdf:
 
     decision = "GO" if total >= 75 else "NO-GO"
 
-    # Build scorecard
+    # Build Excel scorecard
     out_wb = openpyxl.Workbook()
     ws = out_wb.active
     ws.title = "Go_NoGo_Result"
@@ -143,7 +149,6 @@ if spec_pdf:
         if dim.width is not None:
             ws.column_dimensions[col].width = dim.width
 
-    # Wrap text in Column G
     wrap_alignment = Alignment(wrap_text=True)
     for cell in ws["G"]:
         cell.alignment = wrap_alignment
@@ -154,23 +159,3 @@ if spec_pdf:
         ws.cell(row=row_num, column=7, value=comment)
 
     ws["B35"] = total
-    ws["B36"] = decision
-    ws["B37"] = location
-    ws["B38"] = datetime.now().strftime("%Y-%m-%d")
-
-    buffer = io.BytesIO()
-    out_wb.save(buffer)
-    buffer.seek(0)
-
-    st.success(f"**Analysis Complete** → {decision} • Score: {total}/100")
-    st.download_button(
-        label="Download Executive Scorecard",
-        data=buffer,
-        file_name=f"CEC_Water_Bid_Decision_{datetime.now():%Y%m%d}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-
-else:
-    st.info("Upload specification PDF to begin analysis")
-
-st.caption("© 2025 CEC Controls – Internal Executive Tool")
