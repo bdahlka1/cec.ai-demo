@@ -9,8 +9,8 @@ from openpyxl.styles import Alignment
 
 st.set_page_config(page_title="CEC Water Bid Intelligence", layout="wide")
 
-# CEC + SCIO Logo
-st.image("CEC + SCIO Image.png", width=900)
+# CEC + SCIO Logo – reduced by 50% again (now 450px)
+st.image("CEC + SCIO Image.png", width=450)
 
 # Professional header
 st.markdown("""
@@ -45,7 +45,7 @@ st.markdown("""
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# Load template once at startup — using @st.cache_data (not @st.cache)
+# Load template once at startup
 @st.cache_data
 def load_template():
     wb = openpyxl.load_workbook("Water Bid Go_NoGo Weighting Scale.xlsx")
