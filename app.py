@@ -33,9 +33,9 @@ st.markdown('<p class="subtitle">AI-Accelerated Bid Intelligence Engine</p>', un
 
 st.markdown("""
 <div class="explanation">
-<strong>Proprietary Scoring Engine — Built on 20+ Years of Water Controls Expertise</strong><br><br>
+<strong>Proprietary Scoring Engine</strong><br><br>
 This internal system instantly analyzes any municipal water/wastewater specification package and returns a fully populated Go/No-Go scorecard — complete with risk flags, page references, and traceability.<br><br>
-The engine reads every page of the RFP, applies CEC’s proven evaluation framework, and delivers a decision in under 30 seconds — eliminating 45+ minutes of manual review per bid.<br><br>
+The engine reads every page of the RFP and delivers a decision in under 30 seconds — eliminating 45+ minutes of manual review per bid.<br><br>
 Scoring rules are fully configurable via <code>Bid_Scoring_Calibration.xlsx</code> — allowing leadership to adapt the model to changing market conditions and strategic priorities.
 </div>
 """, unsafe_allow_html=True)
