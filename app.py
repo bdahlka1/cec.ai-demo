@@ -6,43 +6,63 @@ from datetime import datetime
 import io
 from copy import copy
 
-st.set_page_config(page_title="CEC Bid Go/No-Go", layout="centered")
+st.set_page_config(page_title="CEC Water Bid AI", layout="wide")
 
-# ONLY the CEC + SCIO image from root
+# Hero branding
 st.image("CEC + SCIO Image.png", use_column_width=True)
 
-st.title("CEC Controls – Water Bid Go/No-Go Analyzer")
-st.caption("Branch Manager Michigan • Internal Tool")
+st.markdown("""
+<div style="text-align: center; padding: 20px;">
+    <h1 style="color: #003087; font-size: 42px;">CEC Controls – Water Bid Intelligence</h1>
+    <p style="font-size: 22px; color: #444;">
+        AI-Powered Go/No-Go Decision Engine • Michigan Branch
+    </p>
+</div>
+""", unsafe_allow_html=True)
 
-# Load template
-@st.cache_data
-def load_template():
-    wb = openpyxl.load_workbook("Water Bid Go_NoGo Weighting Scale.xlsx")
-    ws = wb.active
-    return wb, ws
+st.markdown("""
+<div style="background: #f8f9fa; padding: 25px; border-radius: 12px; border-left: 6px solid #003087;">
+    <h3 style="color: #003087;">What this tool does</h3>
+    <p style="font-size: 18px; line-height: 1.7;">
+        Upload any water/wastewater RFP and receive an <strong>instant, fully-filled Go/No-Go scorecard</strong> 
+        in your exact CEC format — complete with AI-generated comments, page references, and a clear recommendation.
+    </p>
+    <p style="font-size: 16px; color: #555;">
+        • Scores 15+ decision criteria automatically<br>
+        • Extracts project location from the RFP<br>
+        • Fully customizable via the <code>Bid_Scoring_Calibration.xls</code> file (no code changes required)<br>
+        • 100% internal tool – built and owned by CEC Michigan
+    </p>
+</div>
+""", unsafe_allow_html=True)
 
-template_wb, template_ws = load_template()
+spec_pdf = st.file_uploader("Upload Specification PDF", type="pdf")
 
-col1, col2 = st.columns([3,1])
-with col1:
-    spec_pdf = st.file_uploader("Upload Specification PDF", type="pdf")
-with col2:
-    location = st.text_input("Project City, State", "Wauseon, OH")
-
-if spec_pdf and location:
+if spec_pdf:
     progress = st.progress(0)
+    status = st.empty()
 
     # Extract all pages
+    full_text = ""
     page_texts = {}
     try:
         reader = PyPDF2.PdfReader(spec_pdf)
         total_pages = len(reader.pages)
         for i in range(total_pages):
             progress.progress((i+1)/total_pages)
-            page_texts[i+1] = reader.pages[i].extract_text() or ""
+            txt = reader.pages[i].extract_text() or ""
+            full_text += txt + "\n"
+            page_texts[i+1] = txt
     except Exception as e:
         st.error(f"PDF error: {e}")
         st.stop()
+
+    # Auto-detect City & State
+    location = "Unknown"
+    city_state = re.search(r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s*,\s*([A-Z]{2})\b", full_text, re.I)
+    if city_state:
+        location = f"{city_state.group(1)}, {city_state.group(2)}"
+    st.info(f"**Detected Project Location:** {location}")
 
     # Scoring + comments
     comments = {}
@@ -85,12 +105,11 @@ if spec_pdf and location:
 
     decision = "GO" if total >= 75 else "NO-GO"
 
-    # Build output with perfect styling + column widths + row heights
+    # Build output
     out_wb = openpyxl.Workbook()
     ws = out_wb.active
     ws.title = "Go_NoGo_Result"
 
-    # Copy every cell + full styling
     for row in template_ws.iter_rows():
         for cell in row:
             new_cell = ws.cell(row=cell.row, column=cell.column, value=cell.value)
@@ -101,21 +120,18 @@ if spec_pdf and location:
                 new_cell.number_format = cell.number_format
                 new_cell.protection = copy(cell.protection)
                 new_cell.alignment = copy(cell.alignment)
-        # Copy row height safely
         rd = template_ws.row_dimensions.get(row[0].row)
         if rd and rd.height is not None:
             ws.row_dimensions[row[0].row].height = rd.height
 
-    # Copy column widths safely
     for col, dim in template_ws.column_dimensions.items():
         if dim.width is not None:
             ws.column_dimensions[col].width = dim.width
 
-    # Write grades and comments to Column G
     for row_num, comment in comments.items():
-        ws.cell(row=row_num, column=4, value=earned.get(row_num, 0))  # Grade
-        ws.cell(row=row_num, column=6, value=earned.get(row_num, 0))  # Points
-        ws.cell(row=row_num, column=7, value=comment)                 # Comment in G
+        ws.cell(row=row_num, column=4, value=earned.get(row_num, 0))
+        ws.cell(row=row_num, column=6, value=earned.get(row_num, 0))
+        ws.cell(row=row_num, column=7, value=comment)
 
     ws["B35"] = total
     ws["B36"] = decision
@@ -133,7 +149,8 @@ if spec_pdf and location:
         file_name=f"Water_Bid_Go_NoGo_{spec_pdf.name}_{datetime.now():%Y%m%d}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 else:
-    st.info("Upload specification PDF and project location")
+    st.info("Upload specification PDF")
 
 st.caption("© 2025 CEC Controls – Internal Tool")
