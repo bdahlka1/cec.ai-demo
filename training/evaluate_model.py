@@ -13,6 +13,8 @@ This script:
 import csv
 from pathlib import Path
 from parse_scorecard import load_scorecard, CRITERIA
+import PyPDF2
+import re
 
 # -------- Modify this path if needed --------
 DATA_DIR = Path(__file__).resolve().parent / "data"
@@ -23,18 +25,82 @@ MAPPING_FILE = DATA_DIR / "mapping.csv"
 
 def score_rfp_files(pdf_paths):
     """
-    This function SHOULD call your existing scoring logic.
+    Pure-Python version of your scoring logic, adapted from app.py.
 
-    You will:
-      1. import your scoring routine from app.py or another file
-      2. pass the PDF paths to it
-      3. return a dict matching this format:
+    pdf_paths: list of file paths (strings) to one or more PDFs that
+               together represent a single RFP (spec + addenda, etc.)
 
-        {
-          "total": 78,
-          "earned": { row_number: points },
-          "comments": { row_number: "..." },
-        }
+    Returns:
+      {
+        "total": <total score>,
+        "earned": { row_number: points },
+        "comments": { row_number: comment_text },
+      }
+    """
+
+    # 1) Read all PDFs and build full text + page-wise text like your app does
+    page_texts = {}
+    full_text = ""
+    page_index = 1
+
+    for pdf_path in pdf_paths:
+        reader = PyPDF2.PdfReader(pdf_path)
+        for i, page in enumerate(reader.pages):
+            txt = page.extract_text() or ""
+            page_texts[page_index] = txt
+            full_text += txt + "\n"
+            page_index += 1
+
+    # 2) Helper to search pages and assign score (copied from your app style)
+    comments = {}
+    earned = {}
+
+    def grade(row, max_pts, keywords, positive, negative):
+        hits = []
+        for kw in keywords:
+            for p, txt in page_texts.items():
+                if kw.lower() in txt.lower():
+                    # pick a line containing the keyword
+                    sentence = next(
+                        (s.strip() for s in txt.split('\n') if kw.lower() in s.lower()),
+                        txt[:300]
+                    )
+                    hits.append((p, sentence))
+                    break
+        points = max_pts if hits else 0
+        if hits:
+            page, sentence = hits[0]
+            comment = f"{points} pts – {positive} (Page {page})"
+        else:
+            comment = f"0 pts – {negative}"
+
+        comments[row] = comment
+        earned[row] = points
+        return points
+
+    # 3) Apply the same scoring rules as your Streamlit app
+    total = 0
+    total += grade(6, 10, ["cec", "cec controls"], "CEC listed as approved integrator", "Not listed as approved integrator")
+    total += grade(7, 5, ["bid list", "prequalified", "invited bidders"], "Clear bidder list exists", "Bidder list unclear")
+    total += grade(8, 10, ["cec"], "<3 integrators named", ">5 integrators or open bidding")
+    total += grade(9, 5, ["preferred gc", "direct municipal"], "Preferred relationship", "Not preferred")
+    total += grade(11, 5, ["scada", "hmi", "software platform"], "SCADA system clearly defined", "SCADA requirements vague")
+    total += grade(12, 10, ["rockwell", "allen-bradley", "siemens"], "Preferred PLC brand", "Non-preferred or packaged PLC")
+    total += grade(13, 10, ["vtscada", "ignition", "wonderware", "factorytalk"], "Preferred SCADA brand", "Non-preferred SCADA")
+    total += grade(14, 10, ["instrument list", "schedule of values"], "Instrumentation clearly defined", "Instrumentation vague or high-risk")
+    total += grade(15, 5, ["schedule", "milestone", "gantt"], "Schedule realistic", "Schedule missing or unrealistic")
+    total += grade(22, 5, ["wauseon", "fulton", "ohio"], "Within target geography", "Outside primary geography")
+    total += grade(23, 5, ["bid due"], "Bid timing appropriate", "Bid timing rushed")
+    total += grade(24, 5, [], "Strategic value present", "Low strategic value")
+    total += grade(25, 5, ["liquidated damages"], "No liquidated damages", "Liquidated damages present")
+    total += grade(26, 5, ["design-build", "design build"], "Construction only", "Design-Build")
+    total += grade(27, 5, ["installation", "field wiring"], "Installation by others", "CEC to perform installation")
+
+    return {
+        "total": total,
+        "earned": earned,
+        "comments": comments,
+    }
 
     For now, this function is a placeholder that MUST BE UPDATED by you.
     """
