@@ -122,6 +122,26 @@ if spec_pdf:
 
     decision = "GO" if total >= 75 else "NO-GO"
 
+    # Quick summary metrics
+    st.markdown("### Bid Evaluation Summary")
+    col_score, col_decision, col_location = st.columns(3)
+    col_score.metric("Score", f"{total}/100")
+    col_decision.metric("Decision", decision)
+    col_location.metric("Location", location)
+
+    # Tabular view of findings
+    st.markdown("#### Scoring Breakdown")
+    breakdown_rows = []
+    for row_num in sorted(comments.keys()):
+        page, quote = evidence.get(row_num, (None, "No matching text found"))
+        breakdown_rows.append({
+            "Row": row_num,
+            "Points": earned.get(row_num, 0),
+            "Comment": comments[row_num],
+            "Evidence": f"Page {page}: {quote}" if page else "No matching text found"
+        })
+    st.dataframe(breakdown_rows, hide_index=True, use_container_width=True)
+
     # Build Excel scorecard
     out_wb = openpyxl.Workbook()
     ws = out_wb.active
